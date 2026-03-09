@@ -1,0 +1,129 @@
+import java.util.*;
+
+class ParkingLot {
+
+    static class ParkingSpot {
+        String licensePlate;
+        long entryTime;
+        boolean occupied;
+
+        ParkingSpot() {
+            this.occupied = false;
+        }
+    }
+
+    private ParkingSpot[] table;
+    private int capacity;
+    private int size;
+
+    private Map<Integer, Integer> hourlyOccupancy = new HashMap<>();
+    private long totalParkedTime = 0;
+    private int totalVehicles = 0;
+
+    public ParkingLot(int capacity) {
+        this.capacity = capacity;
+        this.table = new ParkingSpot[capacity];
+        for (int i = 0; i < capacity; i++) {
+            table[i] = new ParkingSpot();
+        }
+    }
+
+    private int hash(String plate) {
+        int hash = 0;
+        for (char c : plate.toCharArray()) {
+            hash = (hash * 31 + c) % capacity;
+        }
+        return Math.abs(hash);
+    }
+
+    public int parkVehicle(String licensePlate) {
+        if (size >= capacity) return -1;
+
+        int index = hash(licensePlate);
+
+        for (int i = 0; i < capacity; i++) {
+            int probe = (index + i) % capacity; // Linear probing
+
+            if (!table[probe].occupied) {
+                table[probe].licensePlate = licensePlate;
+                table[probe].entryTime = System.currentTimeMillis();
+                table[probe].occupied = true;
+                size++;
+
+                int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+                hourlyOccupancy.put(hour, hourlyOccupancy.getOrDefault(hour, 0) + 1);
+
+                return probe;
+            }
+        }
+
+        return -1;
+    }
+
+    public double exitVehicle(String licensePlate) {
+        int index = hash(licensePlate);
+
+        for (int i = 0; i < capacity; i++) {
+            int probe = (index + i) % capacity;
+
+            if (table[probe].occupied && table[probe].licensePlate.equals(licensePlate)) {
+
+                long exitTime = System.currentTimeMillis();
+                long duration = exitTime - table[probe].entryTime;
+
+                totalParkedTime += duration;
+                totalVehicles++;
+
+                table[probe].occupied = false;
+                table[probe].licensePlate = null;
+                size--;
+
+                double hours = duration / (1000.0 * 60 * 60);
+                return hours * 10; // billing rate
+            }
+        }
+
+        return -1;
+    }
+
+    public int findNearestAvailableSpot() {
+        for (int i = 0; i < capacity; i++) {
+            if (!table[i].occupied) return i;
+        }
+        return -1;
+    }
+
+    public double averageOccupancy() {
+        if (capacity == 0) return 0;
+        return (double) size / capacity;
+    }
+
+    public int peakHour() {
+        int maxHour = -1;
+        int maxCount = 0;
+
+        for (Map.Entry<Integer, Integer> entry : hourlyOccupancy.entrySet()) {
+            if (entry.getValue() > maxCount) {
+                maxCount = entry.getValue();
+                maxHour = entry.getKey();
+            }
+        }
+        return maxHour;
+    }
+
+    public static void main(String[] args) {
+        ParkingLot lot = new ParkingLot(500);
+
+        int spot1 = lot.parkVehicle("TN01AB1234");
+        int spot2 = lot.parkVehicle("TN09XY5678");
+
+        System.out.println("Vehicle parked at spot: " + spot1);
+        System.out.println("Nearest available: " + lot.findNearestAvailableSpot());
+
+        double bill = lot.exitVehicle("TN01AB1234");
+        System.out.println("Parking fee: $" + bill);
+
+        System.out.println("Average occupancy: " + lot.averageOccupancy());
+        System.out.println("Peak hour: " + lot.peakHour());
+    }
+}
